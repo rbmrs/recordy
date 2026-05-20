@@ -92,6 +92,7 @@ I built Recordy for myself, and the surprise has been how much more I use it tha
 
 <!-- expander:image-slot name="why" placeholder -->
 ![TODO: why diagram](docs/TODO-why.png)
+<img width="691" height="429" alt="image" src="https://github.com/user-attachments/assets/17e16d9f-f480-4fe7-a77b-94e14cd3e9eb" />
 <!-- /expander:image-slot -->
 
 It is still a work in progress, and I am committed to refining it incrementally. My primary objective is to keep it simple and easy to use, so any changes I make are weighed against that. I may make minor adjustments for specific needs, but the bar for adding something is that it should not erode the one or two click path that made the tool worth building. One thing I might add later is a setting to toggle the microphone on or off, which fits the existing shape: another small switch next to the ones already there, not a new mode.
