@@ -1,5 +1,8 @@
 <!-- expander:image-slot name="hero" placeholder -->
-![TODO: Recordy hero](docs/TODO-hero.png)
+<!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
+<img alt="Recordy hero (light) — PASTE" src="PASTE-LIGHT">
+<!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
+<img alt="Recordy hero (dark) — PASTE" src="PASTE-DARK">
 <!-- /expander:image-slot -->
 
 ## The friction that started it
@@ -73,7 +76,10 @@ That visibility is the point. Instead of drawing a region on a dimmed overlay an
 This is the mental model for the whole tool. The window is not a control panel that points at some other region of the screen. The window is the region. Where you place it and how you size it is the capture setup, and there is no separate step to confirm or commit that choice. It collapses "define the region" and "see the region" into the same object on screen.
 
 <!-- expander:image-slot name="how-it-works" placeholder -->
-![TODO: how-it-works diagram](docs/TODO-how-it-works.png)
+<!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
+<img alt="how-it-works (light) — PASTE" src="PASTE-LIGHT">
+<!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
+<img alt="how-it-works (dark) — PASTE" src="PASTE-DARK">
 <!-- /expander:image-slot -->
 
 Around that core idea, the controls stay minimal on purpose. The record button is the most prominent element because starting a recording is the most common thing you do. Everything else is the small set of dropdowns and toggles for FPS, quality, and audio. There is no mode-switching, no scene system, no layering. You see the region, you set a few options, you press the button.
@@ -90,8 +96,7 @@ Beyond the profiles, there are a number of subtle adjustments made under the hoo
 
 I built Recordy for myself, and the surprise has been how much more I use it than I expected. The settings I ended up with are FPS, quality, and system audio, and on evaluation those have been comprehensive enough for most of what I need. That set was not designed to be complete. It is the set of things I actually adjusted, which is a different and more honest list than the one I would have written down if I were trying to anticipate every use.
 
-<!-- expander:image-slot name="why" placeholder -->
-![TODO: why diagram](docs/TODO-why.png)
+<!-- expander:image-slot name="why" -->
 <img width="691" height="429" alt="image" src="https://github.com/user-attachments/assets/17e16d9f-f480-4fe7-a77b-94e14cd3e9eb" />
 <!-- /expander:image-slot -->
 
