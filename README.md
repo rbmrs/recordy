@@ -113,7 +113,7 @@ It may not be the right fit when:
 - You need the breadth of a full recording suite like OBS, with scenes, layering, and streaming.
 - You are not on macOS. Recordy is currently built exclusively for Mac, since that is my primary operating system.
 
-If you find Recordy useful and need additional functionality, or you would like it tailored to a different system such as Windows or Linux, reach out through the project's GitHub page. I am open to expanding its compatibility if there is encouragement to do so, and willing to help adapt it. Thanks for reading.
+If you find Recordy useful and need additional functionality, or you would like it tailored to a different system such as Windows or Linux, reach out through the project's GitHub page. I am open to expanding its compatibility if there is encouragement to do so, and willing to help adapt it.
 
 ## Built with Claude Code
 
