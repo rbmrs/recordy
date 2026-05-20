@@ -1,6 +1,6 @@
 <!-- expander:image-slot name="hero" placeholder -->
 <!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
-<img alt="Recordy hero (light) — PASTE" src="PASTE-LIGHT">
+<img width="873" height="483" alt="image" src="https://github.com/user-attachments/assets/83864bf3-6b20-47b1-ac43-6b45188aba4a" />
 <!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
 <img alt="Recordy hero (dark) — PASTE" src="PASTE-DARK">
 <!-- /expander:image-slot -->
@@ -77,7 +77,7 @@ This is the mental model for the whole tool. The window is not a control panel t
 
 <!-- expander:image-slot name="how-it-works" placeholder -->
 <!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
-<img alt="how-it-works (light) — PASTE" src="PASTE-LIGHT">
+<img width="426" height="262" alt="image" src="https://github.com/user-attachments/assets/a0237ea8-752e-438b-a5b4-f8e6c8ea9536" />
 <!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
 <img alt="how-it-works (dark) — PASTE" src="PASTE-DARK">
 <!-- /expander:image-slot -->
