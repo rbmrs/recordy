@@ -2,7 +2,7 @@
 <!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
 <img width="873" height="483" alt="image" src="https://github.com/user-attachments/assets/83864bf3-6b20-47b1-ac43-6b45188aba4a" />
 <!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
-<img alt="Recordy hero (dark) — PASTE" src="PASTE-DARK">
+!-- <img alt="Recordy hero (dark) — PASTE" src="PASTE-DARK">
 <!-- /expander:image-slot -->
 
 ## The friction that started it
