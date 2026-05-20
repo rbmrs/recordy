@@ -79,7 +79,7 @@ This is the mental model for the whole tool. The window is not a control panel t
 <!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
 <img width="426" height="262" alt="image" src="https://github.com/user-attachments/assets/a0237ea8-752e-438b-a5b4-f8e6c8ea9536" />
 <!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
-<img alt="how-it-works (dark) — PASTE" src="PASTE-DARK">
+<!-- <img alt="how-it-works (dark) — PASTE" src="PASTE-DARK"> -->
 <!-- /expander:image-slot -->
 
 Around that core idea, the controls stay minimal on purpose. The record button is the most prominent element because starting a recording is the most common thing you do. Everything else is the small set of dropdowns and toggles for FPS, quality, and audio. There is no mode-switching, no scene system, no layering. You see the region, you set a few options, you press the button.
