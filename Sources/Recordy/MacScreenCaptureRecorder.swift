@@ -14,6 +14,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
     private var outputURL: URL?
     private var sessionStarted = false
     private var finishing = false
+    private var failed = false
 
     func start(region: CaptureRegion, settings: RecordingSettings) async throws -> URL {
         guard stream == nil else {
@@ -54,6 +55,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
             self.outputURL = outputURL
             self.sessionStarted = false
             self.finishing = false
+            self.failed = false
 
             try await stream.startCapture()
         } catch {
@@ -191,6 +193,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         videoInput = nil
         audioInput = nil
         sessionStarted = false
+        failed = false
 
         guard let writer, let finalURL else {
             emit(.idle)
@@ -209,7 +212,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         writer.finishWriting {
             let writer = writerBox.writer
             if let error = writer.error {
-                self.emit(.failed(error.localizedDescription))
+                self.emit(.failed(error.recordyDescription))
                 continuation.resume(throwing: error)
             } else {
                 self.emit(.idle)
@@ -226,8 +229,32 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         audioInput = nil
         sessionStarted = false
         finishing = false
+        failed = false
         writer.cancelWriting()
-        emit(.failed(error.localizedDescription))
+        emit(.failed(error.recordyDescription))
+    }
+
+    private func failRecording(_ message: String) {
+        guard !failed else {
+            return
+        }
+        failed = true
+        let streamToStop = stream
+        stream = nil
+        assetWriter?.cancelWriting()
+        assetWriter = nil
+        videoInput = nil
+        audioInput = nil
+        outputURL = nil
+        sessionStarted = false
+        finishing = false
+        emit(.failed(message))
+
+        if let streamToStop {
+            Task {
+                try? await streamToStop.stopCapture()
+            }
+        }
     }
 
     private func emit(_ state: RecorderState) {
@@ -253,12 +280,13 @@ extension MacScreenCaptureRecorder: SCStreamOutput {
     ) {
         guard sampleBuffer.isValid,
               !finishing,
+              !failed,
               let writer = assetWriter else {
             return
         }
 
         if writer.status == .failed {
-            emit(.failed(writer.error?.localizedDescription ?? "Recording failed."))
+            failRecording(writer.error?.recordyDescription ?? "Recording failed.")
             return
         }
 
@@ -266,7 +294,7 @@ extension MacScreenCaptureRecorder: SCStreamOutput {
 
         if !sessionStarted {
             guard writer.startWriting() else {
-                emit(.failed(writer.error?.localizedDescription ?? "Could not start writing."))
+                emit(.failed(writer.error?.recordyDescription ?? "Could not start writing."))
                 return
             }
             writer.startSession(atSourceTime: timestamp)
@@ -275,25 +303,71 @@ extension MacScreenCaptureRecorder: SCStreamOutput {
 
         switch type {
         case .screen:
+            guard isCompleteScreenFrame(sampleBuffer) else {
+                return
+            }
             guard let videoInput, videoInput.isReadyForMoreMediaData else {
                 return
             }
-            videoInput.append(sampleBuffer)
+            if !videoInput.append(sampleBuffer) {
+                failRecording(writer.error?.recordyDescription ?? "Could not write video frame.")
+            }
         case .audio:
             guard let audioInput, audioInput.isReadyForMoreMediaData else {
                 return
             }
-            audioInput.append(sampleBuffer)
+            if !audioInput.append(sampleBuffer) {
+                failRecording(writer.error?.recordyDescription ?? "Could not write audio frame.")
+            }
         case .microphone:
             return
         @unknown default:
             return
         }
     }
+
+    private func isCompleteScreenFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
+        guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(
+            sampleBuffer,
+            createIfNecessary: false
+        ) as? [[SCStreamFrameInfo: Any]],
+            let attachments = attachmentsArray.first,
+            let rawStatus = attachments[.status],
+            let status = SCFrameStatus(rawValue: statusRawValue(rawStatus)) else {
+            return false
+        }
+
+        return status == .complete
+    }
+
+    private func statusRawValue(_ value: Any) -> Int {
+        if let value = value as? Int {
+            return value
+        }
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
+        return -1
+    }
 }
 
 extension MacScreenCaptureRecorder: SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        emit(.failed(error.localizedDescription))
+        failRecording(error.recordyDescription)
+    }
+}
+
+private extension Error {
+    var recordyDescription: String {
+        let nsError = self as NSError
+        let description = nsError.localizedDescription
+        let failureReason = nsError.localizedFailureReason
+        let recoverySuggestion = nsError.localizedRecoverySuggestion
+        let domainAndCode = "\(nsError.domain) \(nsError.code)"
+
+        return [description, failureReason, recoverySuggestion, domainAndCode]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " - ")
     }
 }

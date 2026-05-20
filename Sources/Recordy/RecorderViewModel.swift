@@ -36,8 +36,23 @@ final class RecorderViewModel: ObservableObject {
                     lastRecordingURL = try await engine.start(region: region, settings: settings)
                 }
             } catch {
-                state = .failed(error.localizedDescription)
+                state = .failed(error.recordyDescription)
             }
         }
+    }
+}
+
+private extension Error {
+    var recordyDescription: String {
+        let nsError = self as NSError
+        return [
+            nsError.localizedDescription,
+            nsError.localizedFailureReason,
+            nsError.localizedRecoverySuggestion,
+            "\(nsError.domain) \(nsError.code)"
+        ]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+        .joined(separator: " - ")
     }
 }
