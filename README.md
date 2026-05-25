@@ -1,6 +1,6 @@
 <!-- expander:image-slot name="hero" placeholder -->
 <!-- PASTE LIGHT-THEME screenshot on the line directly below this comment (clipboard paste in the GitHub web editor) -->
-<img width="873" height="483" alt="image" src="https://github.com/user-attachments/assets/83864bf3-6b20-47b1-ac43-6b45188aba4a" />
+<img width="758" height="450" alt="image" src="https://github.com/user-attachments/assets/dc7d22fc-36f3-45d0-97c8-2b9f3b4275bf" />
 <!-- PASTE DARK-THEME screenshot on the line directly below this comment -->
 <!-- <img alt="Recordy hero (dark) — PASTE" src="PASTE-DARK"> -->
 <!-- /expander:image-slot -->
