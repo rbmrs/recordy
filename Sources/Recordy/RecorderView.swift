@@ -27,7 +27,7 @@ struct RecorderView: View {
                     }
             }
         }
-        .frame(minWidth: 520, minHeight: 320)
+        .frame(minWidth: CaptureLayout.minimumWindowSize.width, minHeight: CaptureLayout.minimumWindowSize.height)
         .onChange(of: openDropdown) { _, newValue in
             viewModel.settingsDropdownOpen = newValue != nil
         }
@@ -40,7 +40,7 @@ struct RecorderView: View {
         ZStack {
             WindowDragArea()
 
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 Button {
                     NSApp.terminate(nil)
                 } label: {
@@ -51,6 +51,7 @@ struct RecorderView: View {
                 .buttonStyle(.borderless)
                 .foregroundStyle(.white)
                 .background(Circle().fill(Color.red.opacity(0.9)))
+                .frame(width: 38, height: CaptureLayout.toolbarControlSlotHeight)
                 .help("Close")
 
                 Divider()
@@ -58,42 +59,68 @@ struct RecorderView: View {
 
                 ToolbarDropdown(
                     title: viewModel.settings.fps.label,
-                    options: RecordingFPS.allCases,
-                    selection: $viewModel.settings.fps,
-                    isOpen: openDropdown == .fps,
                     isEnabled: !viewModel.state.isRecording,
-                    width: 116,
-                    optionWidth: 82,
-                    label: { $0.label },
-                    toggle: { toggleDropdown(.fps) },
-                    close: { openDropdown = nil }
+                    width: 92,
+                    toggle: { toggleDropdown(.fps) }
                 )
 
                 ToolbarDropdown(
                     title: viewModel.settings.quality.label,
-                    options: QualityProfile.allCases,
-                    selection: $viewModel.settings.quality,
-                    isOpen: openDropdown == .quality,
                     isEnabled: !viewModel.state.isRecording,
-                    width: 128,
-                    optionWidth: 96,
-                    label: { $0.label },
-                    toggle: { toggleDropdown(.quality) },
-                    close: { openDropdown = nil }
+                    width: 112,
+                    toggle: { toggleDropdown(.quality) }
                 )
 
                 ToolbarDropdown(
-                    title: viewModel.settings.audioEnabled ? "Audio On" : "Audio Off",
-                    options: [false, true],
-                    selection: $viewModel.settings.audioEnabled,
-                    isOpen: openDropdown == .audio,
+                    title: viewModel.settings.aspectRatio.label,
                     isEnabled: !viewModel.state.isRecording,
-                    width: 118,
-                    optionWidth: 92,
-                    label: { $0 ? "Audio On" : "Audio Off" },
-                    toggle: { toggleDropdown(.audio) },
-                    close: { openDropdown = nil }
+                    width: 72,
+                    toggle: { toggleDropdown(.aspectRatio) }
                 )
+
+                ToolbarDropdown(
+                    title: viewModel.settings.systemAudio.label,
+                    isEnabled: !viewModel.state.isRecording,
+                    width: 96,
+                    toggle: { toggleDropdown(.audio) }
+                )
+
+                ToolbarDropdown(
+                    title: viewModel.settings.microphone.label,
+                    isEnabled: !viewModel.state.isRecording,
+                    width: 96,
+                    toggle: {
+                        viewModel.refreshMicrophones()
+                        toggleDropdown(.microphone)
+                    }
+                )
+
+                ToolbarDropdown(
+                    title: viewModel.settings.camera.label,
+                    isEnabled: !viewModel.state.isRecording,
+                    width: 96,
+                    toggle: {
+                        viewModel.refreshCameras()
+                        toggleDropdown(.camera)
+                    }
+                )
+
+                Button {
+                    viewModel.toggleCameraShape()
+                } label: {
+                    Image(systemName: viewModel.cameraShape == .circle ? "circle" : "square")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: CaptureLayout.toolbarControlHeight, height: CaptureLayout.toolbarControlHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(Color.white.opacity(viewModel.settings.camera.isEnabled ? 0.16 : 0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.settings.camera.isEnabled ? .white : .white.opacity(0.45))
+                .disabled(!viewModel.settings.camera.isEnabled || viewModel.state.isRecording)
+                .frame(width: 34, height: CaptureLayout.toolbarControlSlotHeight)
+                .help("Toggle webcam shape")
 
                 Spacer(minLength: 8)
 
@@ -102,6 +129,7 @@ struct RecorderView: View {
                     .foregroundStyle(.white.opacity(0.76))
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .frame(maxWidth: 80, alignment: .trailing)
 
                 Button {
                     openDropdown = nil
@@ -121,11 +149,79 @@ struct RecorderView: View {
                         .fill(viewModel.state.isRecording ? Color.red : Color.green)
                 )
                 .disabled(viewModel.state == .preparing || viewModel.state == .stopping)
+                .frame(height: CaptureLayout.toolbarControlSlotHeight)
                 .help(viewModel.state.isRecording ? "Stop recording" : "Start recording")
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
+            .frame(height: CaptureLayout.toolbarControlSlotHeight, alignment: .center)
         }
+        .frame(height: CaptureLayout.toolbarHeight)
         .background(.black.opacity(0.72))
+        .overlay(alignment: .topLeading) {
+            dropdownOverlay
+        }
+    }
+
+    @ViewBuilder
+    private var dropdownOverlay: some View {
+        switch openDropdown {
+        case .fps:
+            DropdownPopup(
+                options: RecordingFPS.allCases,
+                selection: $viewModel.settings.fps,
+                optionWidth: 82,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.fpsDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .quality:
+            DropdownPopup(
+                options: QualityProfile.allCases,
+                selection: $viewModel.settings.quality,
+                optionWidth: 96,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.qualityDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .aspectRatio:
+            DropdownPopup(
+                options: CaptureAspectRatio.allCases,
+                selection: $viewModel.settings.aspectRatio,
+                optionWidth: 66,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.aspectRatioDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .audio:
+            DropdownPopup(
+                options: SystemAudioSource.allCases,
+                selection: $viewModel.settings.systemAudio,
+                optionWidth: 104,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.audioDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .microphone:
+            DropdownPopup(
+                options: viewModel.microphoneOptions,
+                selection: $viewModel.settings.microphone,
+                optionWidth: 160,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.microphoneDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .camera:
+            DropdownPopup(
+                options: viewModel.cameraOptions,
+                selection: $viewModel.settings.camera,
+                optionWidth: 160,
+                label: { $0.label },
+                close: { openDropdown = nil }
+            )
+            .offset(x: CaptureLayout.cameraDropdownX, y: CaptureLayout.dropdownPopupY)
+        case nil:
+            EmptyView()
+        }
     }
 
     private func toggleDropdown(_ dropdown: SettingsDropdown) {
@@ -151,86 +247,97 @@ struct WindowDragArea: NSViewRepresentable {
 }
 
 enum CaptureLayout {
+    static let minimumWindowSize = NSSize(width: 900, height: 320)
     static let toolbarHeight: CGFloat = 54
     static let borderWidth: CGFloat = 3
     static let resizeHitWidth: CGFloat = 12
+    static let toolbarControlHeight: CGFloat = 30
+    static let toolbarControlSlotHeight: CGFloat = 38
+    static let dropdownPopupY: CGFloat = 44
+    static let fpsDropdownX: CGFloat = 62
+    static let qualityDropdownX: CGFloat = 163
+    static let aspectRatioDropdownX: CGFloat = 274
+    static let audioDropdownX: CGFloat = 347
+    static let microphoneDropdownX: CGFloat = 421
+    static let cameraDropdownX: CGFloat = 523
 }
 
 enum SettingsDropdown {
     case fps
     case quality
+    case aspectRatio
     case audio
+    case microphone
+    case camera
 }
 
-struct ToolbarDropdown<Option: Hashable>: View {
+struct ToolbarDropdown: View {
     let title: String
-    let options: [Option]
-    @Binding var selection: Option
-    let isOpen: Bool
     let isEnabled: Bool
     let width: CGFloat
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .padding(.horizontal, 10)
+            .frame(width: width, height: CaptureLayout.toolbarControlHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(isEnabled ? Color.white.opacity(0.16) : Color.white.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isEnabled ? .white : .white.opacity(0.45))
+        .disabled(!isEnabled)
+        .frame(width: width, height: CaptureLayout.toolbarControlSlotHeight, alignment: .center)
+    }
+}
+
+struct DropdownPopup<Option: Hashable>: View {
+    let options: [Option]
+    @Binding var selection: Option
     let optionWidth: CGFloat
     let label: (Option) -> String
-    let toggle: () -> Void
     let close: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Button(action: toggle) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.system(size: 12, weight: .medium))
+        VStack(spacing: 4) {
+            ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                Button {
+                    selection = option
+                    close()
+                } label: {
+                    Text(label(option))
+                        .font(.system(size: 12, weight: selection == option ? .semibold : .regular))
                         .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .padding(.horizontal, 10)
-                .frame(width: width, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(isEnabled ? Color.white.opacity(0.16) : Color.white.opacity(0.08))
-                )
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(isEnabled ? .white : .white.opacity(0.45))
-            .disabled(!isEnabled)
-
-            if isOpen {
-                VStack(spacing: 4) {
-                    ForEach(Array(options.enumerated()), id: \.offset) { _, option in
-                        Button {
-                            selection = option
-                            close()
-                        } label: {
-                            Text(label(option))
-                                .font(.system(size: 12, weight: selection == option ? .semibold : .regular))
-                                .lineLimit(1)
-                                .frame(width: optionWidth, height: 28)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(selection == option ? Color.accentColor.opacity(0.92) : Color.white.opacity(0.14))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white)
-                    }
-                }
-                .padding(4)
-                .background(
-                    RoundedRectangle(cornerRadius: 9)
-                        .fill(Color.black.opacity(0.92))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 9)
-                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        .frame(width: optionWidth, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(selection == option ? Color.accentColor.opacity(0.92) : Color.white.opacity(0.14))
                         )
-                )
-                .shadow(radius: 8, y: 4)
-                .offset(y: 34)
-                .zIndex(10)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
             }
         }
-        .frame(width: width, height: 38, alignment: .topLeading)
-        .zIndex(isOpen ? 20 : 0)
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(Color.black.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+        )
+        .shadow(radius: 8, y: 4)
+        .zIndex(50)
     }
 }

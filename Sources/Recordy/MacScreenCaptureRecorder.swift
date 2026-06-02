@@ -10,7 +10,8 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
     private var stream: SCStream?
     private var assetWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
-    private var audioInput: AVAssetWriterInput?
+    private var systemAudioInput: AVAssetWriterInput?
+    private var microphoneInput: AVAssetWriterInput?
     private var outputURL: URL?
     private var sessionStarted = false
     private var finishing = false
@@ -35,9 +36,8 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
             throw RecorderError.noDisplay
         }
 
-        let currentProcessID = Int32(ProcessInfo.processInfo.processIdentifier)
         let excludedWindows = shareableContent.windows.filter { window in
-            window.owningApplication?.processID == currentProcessID
+            region.excludedWindowIDs.contains(window.windowID)
         }
 
         let filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
@@ -46,8 +46,15 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
 
         do {
             try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
-            if settings.audioEnabled {
+            if settings.systemAudio.isEnabled {
                 try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+            }
+            if settings.microphone.isEnabled {
+                if #available(macOS 15.0, *) {
+                    try stream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: sampleQueue)
+                } else {
+                    throw RecorderError.writerFailed("Microphone capture requires macOS 15 or newer.")
+                }
             }
 
             self.stream = stream
@@ -95,10 +102,14 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
             value: 1,
             timescale: CMTimeScale(settings.fps.rawValue)
         )
-        configuration.capturesAudio = settings.audioEnabled
+        configuration.capturesAudio = settings.systemAudio.isEnabled
         configuration.excludesCurrentProcessAudio = true
         configuration.sampleRate = 48_000
         configuration.channelCount = 2
+        if #available(macOS 15.0, *) {
+            configuration.captureMicrophone = settings.microphone.isEnabled
+            configuration.microphoneCaptureDeviceID = settings.microphone.deviceID
+        }
         return configuration
     }
 
@@ -140,23 +151,33 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         writer.add(videoInput)
         self.videoInput = videoInput
 
-        if settings.audioEnabled {
-            let audioSettings: [String: Any] = [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48_000,
-                AVNumberOfChannelsKey: 2,
-                AVEncoderBitRateKey: 128_000
-            ]
-            let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
-            audioInput.expectsMediaDataInRealTime = true
+        if settings.systemAudio.isEnabled {
+            systemAudioInput = try makeAudioInput(for: writer, label: "system audio")
+        }
 
-            if writer.canAdd(audioInput) {
-                writer.add(audioInput)
-                self.audioInput = audioInput
-            }
+        if settings.microphone.isEnabled {
+            microphoneInput = try makeAudioInput(for: writer, label: "microphone")
         }
 
         return writer
+    }
+
+    private func makeAudioInput(for writer: AVAssetWriter, label: String) throws -> AVAssetWriterInput {
+        let audioSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVEncoderBitRateKey: 128_000
+        ]
+        let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+        audioInput.expectsMediaDataInRealTime = true
+
+        guard writer.canAdd(audioInput) else {
+            throw RecorderError.writerFailed("Could not prepare the \(label) track.")
+        }
+
+        writer.add(audioInput)
+        return audioInput
     }
 
     private func makeOutputURL() throws -> URL {
@@ -189,9 +210,11 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         outputURL = nil
 
         videoInput?.markAsFinished()
-        audioInput?.markAsFinished()
+        systemAudioInput?.markAsFinished()
+        microphoneInput?.markAsFinished()
         videoInput = nil
-        audioInput = nil
+        systemAudioInput = nil
+        microphoneInput = nil
         sessionStarted = false
         failed = false
 
@@ -215,10 +238,178 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
                 self.emit(.failed(error.recordyDescription))
                 continuation.resume(throwing: error)
             } else {
-                self.emit(.idle)
-                continuation.resume(returning: finalURL)
+                Task {
+                    do {
+                        let finalURL = try await Self.mixAudioTracksToSingleTrackIfNeeded(at: finalURL)
+                        self.emit(.idle)
+                        continuation.resume(returning: finalURL)
+                    } catch {
+                        self.emit(.failed("Saved recording, but audio mixdown failed: \(error.recordyDescription)"))
+                        continuation.resume(returning: finalURL)
+                    }
+                }
             }
         }
+    }
+
+    private static func mixAudioTracksToSingleTrackIfNeeded(at url: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    continuation.resume(returning: try rewriteWithSingleAudioTrackIfNeeded(at: url))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private static func rewriteWithSingleAudioTrackIfNeeded(at url: URL) throws -> URL {
+        let asset = AVURLAsset(url: url)
+        let audioTracks = asset.tracks(withMediaType: .audio)
+
+        guard audioTracks.count > 1 else {
+            return url
+        }
+
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw RecorderError.writerFailed("Could not find the video track for audio mixdown.")
+        }
+
+        let fileManager = FileManager.default
+        let mixdownURL = temporarySiblingURL(for: url, suffix: "mixdown")
+        try? fileManager.removeItem(at: mixdownURL)
+
+        let reader = try AVAssetReader(asset: asset)
+        let writer = try AVAssetWriter(outputURL: mixdownURL, fileType: .mp4)
+        writer.shouldOptimizeForNetworkUse = true
+
+        let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
+        videoOutput.alwaysCopiesSampleData = false
+
+        guard reader.canAdd(videoOutput) else {
+            throw RecorderError.writerFailed("Could not prepare video passthrough for audio mixdown.")
+        }
+        reader.add(videoOutput)
+
+        let videoFormatHint = videoTrack.formatDescriptions.first.map { $0 as! CMFormatDescription }
+        let videoInput = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: nil,
+            sourceFormatHint: videoFormatHint
+        )
+        videoInput.expectsMediaDataInRealTime = false
+
+        guard writer.canAdd(videoInput) else {
+            throw RecorderError.writerFailed("Could not prepare video writer for audio mixdown.")
+        }
+        writer.add(videoInput)
+
+        let linearPCMSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: false
+        ]
+        let audioOutput = AVAssetReaderAudioMixOutput(audioTracks: audioTracks, audioSettings: linearPCMSettings)
+        audioOutput.alwaysCopiesSampleData = false
+        audioOutput.audioMix = audioMix(for: audioTracks)
+
+        guard reader.canAdd(audioOutput) else {
+            throw RecorderError.writerFailed("Could not prepare audio reader for mixdown.")
+        }
+        reader.add(audioOutput)
+
+        let aacSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVEncoderBitRateKey: 128_000
+        ]
+        let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: aacSettings)
+        audioInput.expectsMediaDataInRealTime = false
+
+        guard writer.canAdd(audioInput) else {
+            throw RecorderError.writerFailed("Could not prepare mixed audio writer.")
+        }
+        writer.add(audioInput)
+
+        guard reader.startReading() else {
+            throw reader.error ?? RecorderError.writerFailed("Could not start reading tracks for audio mixdown.")
+        }
+
+        guard writer.startWriting() else {
+            reader.cancelReading()
+            throw writer.error ?? RecorderError.writerFailed("Could not start writing audio mixdown.")
+        }
+
+        writer.startSession(atSourceTime: .zero)
+
+        try copySamples(
+            videoOutput: videoOutput,
+            videoInput: videoInput,
+            audioOutput: audioOutput,
+            audioInput: audioInput,
+            reader: reader,
+            writer: writer
+        )
+
+        try replaceRecording(at: url, with: mixdownURL)
+        return url
+    }
+
+    private static func audioMix(for audioTracks: [AVAssetTrack]) -> AVAudioMix {
+        let mix = AVMutableAudioMix()
+        let volume = audioTracks.count > 1 ? Float(1.0 / sqrt(Double(audioTracks.count))) : 1.0
+        mix.inputParameters = audioTracks.map { track in
+            let parameters = AVMutableAudioMixInputParameters(track: track)
+            parameters.setVolume(volume, at: .zero)
+            return parameters
+        }
+        return mix
+    }
+
+    private static func copySamples(
+        videoOutput: AVAssetReaderTrackOutput,
+        videoInput: AVAssetWriterInput,
+        audioOutput: AVAssetReaderAudioMixOutput,
+        audioInput: AVAssetWriterInput,
+        reader: AVAssetReader,
+        writer: AVAssetWriter
+    ) throws {
+        let context = AudioMixdownCopyContext(
+            videoOutput: videoOutput,
+            videoInput: videoInput,
+            audioOutput: audioOutput,
+            audioInput: audioInput,
+            reader: reader,
+            writer: writer
+        )
+        context.start()
+        try context.waitForCompletion()
+    }
+
+    private static func replaceRecording(at originalURL: URL, with mixedURL: URL) throws {
+        let fileManager = FileManager.default
+        let backupURL = temporarySiblingURL(for: originalURL, suffix: "original")
+        try? fileManager.removeItem(at: backupURL)
+
+        try fileManager.moveItem(at: originalURL, to: backupURL)
+        do {
+            try fileManager.moveItem(at: mixedURL, to: originalURL)
+            try? fileManager.removeItem(at: backupURL)
+        } catch {
+            try? fileManager.moveItem(at: backupURL, to: originalURL)
+            throw error
+        }
+    }
+
+    private static func temporarySiblingURL(for url: URL, suffix: String) -> URL {
+        let folder = url.deletingLastPathComponent()
+        let baseName = url.deletingPathExtension().lastPathComponent
+        return folder.appending(path: ".\(baseName)-\(suffix)-\(UUID().uuidString).mp4")
     }
 
     private func cleanupAfterStartFailure(writer: AVAssetWriter, error: Error) {
@@ -226,7 +417,8 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         assetWriter = nil
         outputURL = nil
         videoInput = nil
-        audioInput = nil
+        systemAudioInput = nil
+        microphoneInput = nil
         sessionStarted = false
         finishing = false
         failed = false
@@ -244,7 +436,8 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         assetWriter?.cancelWriting()
         assetWriter = nil
         videoInput = nil
-        audioInput = nil
+        systemAudioInput = nil
+        microphoneInput = nil
         outputURL = nil
         sessionStarted = false
         finishing = false
@@ -269,6 +462,174 @@ private final class SendableWriterBox: @unchecked Sendable {
 
     init(_ writer: AVAssetWriter) {
         self.writer = writer
+    }
+}
+
+private final class AudioMixdownCopyContext: @unchecked Sendable {
+    private let videoOutput: AVAssetReaderTrackOutput
+    private let videoInput: AVAssetWriterInput
+    private let audioOutput: AVAssetReaderAudioMixOutput
+    private let audioInput: AVAssetWriterInput
+    private let reader: AVAssetReader
+    private let writer: AVAssetWriter
+    private let videoQueue = DispatchQueue(label: "recordy.audio.mixdown.video")
+    private let audioQueue = DispatchQueue(label: "recordy.audio.mixdown.audio")
+    private let group = DispatchGroup()
+    private let lock = NSLock()
+    private var copyError: Error?
+    private var finishError: Error?
+    private var videoFinished = false
+    private var audioFinished = false
+
+    init(
+        videoOutput: AVAssetReaderTrackOutput,
+        videoInput: AVAssetWriterInput,
+        audioOutput: AVAssetReaderAudioMixOutput,
+        audioInput: AVAssetWriterInput,
+        reader: AVAssetReader,
+        writer: AVAssetWriter
+    ) {
+        self.videoOutput = videoOutput
+        self.videoInput = videoInput
+        self.audioOutput = audioOutput
+        self.audioInput = audioInput
+        self.reader = reader
+        self.writer = writer
+    }
+
+    func start() {
+        group.enter()
+        videoInput.requestMediaDataWhenReady(on: videoQueue) { [self] in
+            copyVideo()
+        }
+
+        group.enter()
+        audioInput.requestMediaDataWhenReady(on: audioQueue) { [self] in
+            copyAudio()
+        }
+    }
+
+    func waitForCompletion() throws {
+        group.wait()
+
+        if let error = currentCopyError() {
+            throw error
+        }
+
+        if reader.status == .failed {
+            throw reader.error ?? RecorderError.writerFailed("Audio mixdown reader failed.")
+        }
+
+        let finishSemaphore = DispatchSemaphore(value: 0)
+        writer.finishWriting { [self] in
+            setFinishError(writer.error)
+            finishSemaphore.signal()
+        }
+        finishSemaphore.wait()
+
+        if let finishError = currentFinishError() {
+            throw finishError
+        }
+
+        if writer.status != .completed {
+            throw RecorderError.writerFailed("Audio mixdown did not complete.")
+        }
+    }
+
+    private func copyVideo() {
+        guard !videoFinished else {
+            return
+        }
+
+        while videoInput.isReadyForMoreMediaData {
+            if let error = currentCopyError() {
+                finishVideo()
+                setCopyError(error)
+                return
+            }
+
+            guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
+                finishVideo()
+                return
+            }
+
+            if !videoInput.append(sampleBuffer) {
+                finishVideo()
+                setCopyError(writer.error ?? RecorderError.writerFailed("Could not copy video during audio mixdown."))
+                return
+            }
+        }
+    }
+
+    private func copyAudio() {
+        guard !audioFinished else {
+            return
+        }
+
+        while audioInput.isReadyForMoreMediaData {
+            if let error = currentCopyError() {
+                finishAudio()
+                setCopyError(error)
+                return
+            }
+
+            guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
+                finishAudio()
+                return
+            }
+
+            if !audioInput.append(sampleBuffer) {
+                finishAudio()
+                setCopyError(writer.error ?? RecorderError.writerFailed("Could not write mixed audio."))
+                return
+            }
+        }
+    }
+
+    private func finishVideo() {
+        guard !videoFinished else {
+            return
+        }
+        videoInput.markAsFinished()
+        videoFinished = true
+        group.leave()
+    }
+
+    private func finishAudio() {
+        guard !audioFinished else {
+            return
+        }
+        audioInput.markAsFinished()
+        audioFinished = true
+        group.leave()
+    }
+
+    private func setCopyError(_ error: Error) {
+        lock.lock()
+        if copyError == nil {
+            copyError = error
+            reader.cancelReading()
+            writer.cancelWriting()
+        }
+        lock.unlock()
+    }
+
+    private func currentCopyError() -> Error? {
+        lock.lock()
+        defer { lock.unlock() }
+        return copyError
+    }
+
+    private func setFinishError(_ error: Error?) {
+        lock.lock()
+        finishError = error
+        lock.unlock()
+    }
+
+    private func currentFinishError() -> Error? {
+        lock.lock()
+        defer { lock.unlock() }
+        return finishError
     }
 }
 
@@ -313,14 +674,19 @@ extension MacScreenCaptureRecorder: SCStreamOutput {
                 failRecording(writer.error?.recordyDescription ?? "Could not write video frame.")
             }
         case .audio:
-            guard let audioInput, audioInput.isReadyForMoreMediaData else {
+            guard let systemAudioInput, systemAudioInput.isReadyForMoreMediaData else {
                 return
             }
-            if !audioInput.append(sampleBuffer) {
-                failRecording(writer.error?.recordyDescription ?? "Could not write audio frame.")
+            if !systemAudioInput.append(sampleBuffer) {
+                failRecording(writer.error?.recordyDescription ?? "Could not write system audio frame.")
             }
         case .microphone:
-            return
+            guard let microphoneInput, microphoneInput.isReadyForMoreMediaData else {
+                return
+            }
+            if !microphoneInput.append(sampleBuffer) {
+                failRecording(writer.error?.recordyDescription ?? "Could not write microphone frame.")
+            }
         @unknown default:
             return
         }

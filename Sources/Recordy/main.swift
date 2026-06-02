@@ -12,6 +12,7 @@ withExtendedLifetime(delegate) {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var captureWindowController: CaptureWindowController?
+    private var cameraOverlayController: CameraOverlayController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenu()
@@ -19,14 +20,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let recorder = MacScreenCaptureRecorder()
         let viewModel = RecorderViewModel(engine: recorder)
         let controller = CaptureWindowController(viewModel: viewModel)
+        let cameraOverlay = CameraOverlayController(anchorWindow: controller.window)
+        viewModel.cameraSelectionChanged = { [weak cameraOverlay] camera in
+            Task { @MainActor in
+                cameraOverlay?.apply(camera: camera)
+            }
+        }
+        viewModel.cameraShapeChanged = { [weak cameraOverlay] shape in
+            Task { @MainActor in
+                cameraOverlay?.setShape(shape)
+            }
+        }
+        viewModel.aspectRatioChanged = { [weak controller] aspectRatio in
+            Task { @MainActor in
+                controller?.setAspectRatio(aspectRatio)
+            }
+        }
+        controller.originDidChange = { [weak cameraOverlay] delta in
+            Task { @MainActor in
+                cameraOverlay?.anchorWindowDidMove(delta: delta)
+            }
+        }
+        viewModel.syncCameraOverlay()
+        viewModel.syncCaptureWindowSettings()
         captureWindowController = controller
+        cameraOverlayController = cameraOverlay
 
         controller.showWindow(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 
     private func installMenu() {

@@ -5,12 +5,14 @@ import SwiftUI
 final class CaptureWindowController: NSWindowController {
     private let viewModel: RecorderViewModel
     private var passThroughTimer: Timer?
+    private var lastWindowOrigin: CGPoint?
+    var originDidChange: ((CGPoint) -> Void)?
 
     init(viewModel: RecorderViewModel) {
         self.viewModel = viewModel
 
         let panel = CapturePanel(
-            contentRect: NSRect(x: 240, y: 240, width: 760, height: 460),
+            contentRect: AppPreferences.loadCaptureFrame() ?? NSRect(x: 240, y: 240, width: 960, height: 600),
             styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
@@ -21,11 +23,21 @@ final class CaptureWindowController: NSWindowController {
         panel.hasShadow = false
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.minSize = NSSize(width: 520, height: 320)
+        panel.minSize = CaptureLayout.minimumWindowSize
         panel.isMovableByWindowBackground = false
         panel.hidesOnDeactivate = false
+        panel.captureAspectRatio = viewModel.settings.aspectRatio
+        panel.delegate = panel
 
         super.init(window: panel)
+
+        lastWindowOrigin = panel.frame.origin
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidMove(_:)),
+            name: NSWindow.didMoveNotification,
+            object: panel
+        )
 
         let hostingView = CaptureHostingView(rootView: RecorderView(viewModel: viewModel), viewModel: viewModel)
         hostingView.frame = panel.contentView?.bounds ?? .zero
@@ -43,10 +55,39 @@ final class CaptureWindowController: NSWindowController {
         nil
     }
 
+    func setAspectRatio(_ aspectRatio: CaptureAspectRatio) {
+        (window as? CapturePanel)?.updateAspectRatio(aspectRatio)
+    }
+
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
-        window?.center()
+        if AppPreferences.loadCaptureFrame() == nil {
+            window?.center()
+        }
+        lastWindowOrigin = window?.frame.origin
         window?.makeKeyAndOrderFront(sender)
+    }
+
+    @objc private func windowDidMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else {
+            return
+        }
+
+        let newOrigin = window.frame.origin
+        guard let lastWindowOrigin else {
+            self.lastWindowOrigin = newOrigin
+            return
+        }
+
+        let delta = CGPoint(
+            x: newOrigin.x - lastWindowOrigin.x,
+            y: newOrigin.y - lastWindowOrigin.y
+        )
+        self.lastWindowOrigin = newOrigin
+
+        if delta.x != 0 || delta.y != 0 {
+            originDidChange?(delta)
+        }
     }
 
     private func startPassThroughTracking(for panel: NSPanel) {
@@ -131,7 +172,8 @@ final class CaptureWindowController: NSWindowController {
         return CaptureRegion(
             screenRect: localRect,
             displayID: displayID,
-            outputSize: CGSize(width: outputWidth, height: outputHeight)
+            outputSize: CGSize(width: outputWidth, height: outputHeight),
+            excludedWindowIDs: [CGWindowID(window.windowNumber)]
         )
     }
 
@@ -160,9 +202,80 @@ final class CaptureWindowController: NSWindowController {
     }
 }
 
-final class CapturePanel: NSPanel {
+final class CapturePanel: NSPanel, NSWindowDelegate {
+    var captureAspectRatio: CaptureAspectRatio = .free
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    func updateAspectRatio(_ aspectRatio: CaptureAspectRatio) {
+        captureAspectRatio = aspectRatio
+        applyAspectRatioToCurrentFrame()
+    }
+
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        constrainedSize(for: frameSize, currentSize: sender.frame.size)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(frameRect, display: flag)
+        AppPreferences.saveCaptureFrame(frame)
+    }
+
+    private func applyAspectRatioToCurrentFrame() {
+        guard captureAspectRatio.ratio != nil else {
+            return
+        }
+
+        let adjustedSize = constrainedSize(for: frame.size, currentSize: frame.size)
+        guard adjustedSize != frame.size else {
+            return
+        }
+
+        let currentTop = frame.maxY
+        var adjustedFrame = frame
+        adjustedFrame.size = adjustedSize
+        adjustedFrame.origin.y = currentTop - adjustedSize.height
+        setFrame(adjustedFrame, display: true)
+    }
+
+    private func constrainedSize(for proposedSize: NSSize, currentSize: NSSize) -> NSSize {
+        guard let ratio = captureAspectRatio.ratio else {
+            return proposedSize
+        }
+
+        let borderWidth = CaptureLayout.borderWidth
+        let captureWidthInset = borderWidth * 2
+        let captureHeightInset = CaptureLayout.toolbarHeight + borderWidth
+        let minimumCaptureWidth = max(32, minSize.width - captureWidthInset)
+        let minimumCaptureHeight = max(32, minSize.height - captureHeightInset)
+
+        var captureWidth = max(minimumCaptureWidth, proposedSize.width - captureWidthInset)
+        var captureHeight = max(minimumCaptureHeight, proposedSize.height - captureHeightInset)
+        let widthDelta = abs(proposedSize.width - currentSize.width)
+        let heightDelta = abs(proposedSize.height - currentSize.height)
+
+        if widthDelta >= heightDelta {
+            captureHeight = captureWidth / ratio
+        } else {
+            captureWidth = captureHeight * ratio
+        }
+
+        if captureWidth < minimumCaptureWidth {
+            captureWidth = minimumCaptureWidth
+            captureHeight = captureWidth / ratio
+        }
+
+        if captureHeight < minimumCaptureHeight {
+            captureHeight = minimumCaptureHeight
+            captureWidth = captureHeight * ratio
+        }
+
+        return NSSize(
+            width: captureWidth + captureWidthInset,
+            height: captureHeight + captureHeightInset
+        )
+    }
 }
 
 final class CaptureHostingView: NSHostingView<RecorderView> {
