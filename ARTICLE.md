@@ -1,8 +1,9 @@
-<!-- article:image-slot name="hero" placeholder -->
-<!-- ADD AN IMAGE, either way:
-     A) Drop any image file into  docs/images/hero/  (any filename), then re-run the skill.
-     B) GitHub web editor: delete the <img> line below, click the empty line, paste a screenshot. -->
-<img alt="hero — PASTE" src="PASTE">
+<!-- article:image-slot name="hero" -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero/image.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/hero/image.png">
+  <img width="1600" height="900" alt="Recordy — record a region, stop means saved" src="docs/images/hero/image.png">
+</picture>
 <!-- /article:image-slot -->
 
 Most days I just want to capture one rectangle of my screen and hand the file to someone. OBS does that, and it does a hundred other things too, which is exactly the cost: every time I opened it the extra setup got between me and the one thing I came to do. Small interruptions, repeated all day, were enough to make me record less than I wanted to. So I built Recordy, a small native macOS screen recorder scoped to a region. The window is the capture region: position it over what you want, press record, press stop, and an MP4 is saved automatically.
