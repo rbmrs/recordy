@@ -64,6 +64,7 @@ final class RecorderViewModel: ObservableObject {
         settings.quality = QualityProfile(rawValue: persisted.quality) ?? .balanced
         settings.aspectRatio = CaptureAspectRatio(rawValue: persisted.aspectRatio) ?? .free
         settings.systemAudio = SystemAudioSource(rawValue: persisted.systemAudio) ?? .off
+        settings.audioTrackMode = AudioTrackMode(rawValue: persisted.audioTrackMode) ?? .mixed
 
         if let microphoneID = persisted.microphoneID {
             settings.microphone = .device(

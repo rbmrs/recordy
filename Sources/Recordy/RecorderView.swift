@@ -122,6 +122,23 @@ struct RecorderView: View {
                 .frame(width: 34, height: CaptureLayout.toolbarControlSlotHeight)
                 .help("Toggle webcam shape")
 
+                Button {
+                    toggleDropdown(.settings)
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: CaptureLayout.toolbarControlHeight, height: CaptureLayout.toolbarControlHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(openDropdown == .settings ? Color.accentColor.opacity(0.92) : Color.white.opacity(0.16))
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.state.isRecording ? .white.opacity(0.45) : .white)
+                .disabled(viewModel.state.isRecording)
+                .frame(width: 34, height: CaptureLayout.toolbarControlSlotHeight)
+                .help("Settings")
+
                 Spacer(minLength: 8)
 
                 Text(viewModel.state.label)
@@ -219,6 +236,9 @@ struct RecorderView: View {
                 close: { openDropdown = nil }
             )
             .offset(x: CaptureLayout.cameraDropdownX, y: CaptureLayout.dropdownPopupY)
+        case .settings:
+            RecorderSettingsPopup(audioTrackMode: $viewModel.settings.audioTrackMode)
+                .offset(x: CaptureLayout.settingsPopupX, y: CaptureLayout.dropdownPopupY)
         case nil:
             EmptyView()
         }
@@ -260,6 +280,7 @@ enum CaptureLayout {
     static let audioDropdownX: CGFloat = 347
     static let microphoneDropdownX: CGFloat = 421
     static let cameraDropdownX: CGFloat = 523
+    static let settingsPopupX: CGFloat = 596
 }
 
 enum SettingsDropdown {
@@ -269,6 +290,7 @@ enum SettingsDropdown {
     case audio
     case microphone
     case camera
+    case settings
 }
 
 struct ToolbarDropdown: View {
@@ -337,6 +359,61 @@ struct DropdownPopup<Option: Hashable>: View {
                         .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 )
         )
+        .shadow(radius: 8, y: 4)
+        .zIndex(50)
+    }
+}
+
+struct RecorderSettingsPopup: View {
+    @Binding var audioTrackMode: AudioTrackMode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Settings")
+                .font(.system(size: 13, weight: .semibold))
+
+            Divider()
+
+            Text("Audio tracks")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.78))
+
+            HStack(spacing: 0) {
+                ForEach(AudioTrackMode.allCases) { mode in
+                    Button {
+                        audioTrackMode = mode
+                    } label: {
+                        Text(mode.label)
+                            .font(.system(size: 12, weight: audioTrackMode == mode ? .semibold : .regular))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(audioTrackMode == mode ? Color.accentColor.opacity(0.92) : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+                }
+            }
+            .padding(2)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.white.opacity(0.12))
+            )
+        }
+        .padding(10)
+        .frame(width: 244)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(Color.black.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+        )
+        .foregroundStyle(.white)
         .shadow(radius: 8, y: 4)
         .zIndex(50)
     }

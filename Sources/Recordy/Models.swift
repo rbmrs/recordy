@@ -119,6 +119,22 @@ enum CaptureAspectRatio: String, CaseIterable, Identifiable {
     }
 }
 
+enum AudioTrackMode: String, CaseIterable, Identifiable {
+    case mixed
+    case separate
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .mixed:
+            "1 Mixed"
+        case .separate:
+            "2 Separate"
+        }
+    }
+}
+
 struct RecordingSettings: Equatable {
     var fps: RecordingFPS = .fps30
     var quality: QualityProfile = .balanced
@@ -126,6 +142,7 @@ struct RecordingSettings: Equatable {
     var systemAudio: SystemAudioSource = .off
     var microphone: MicrophoneSource = .off
     var camera: CameraSource = .off
+    var audioTrackMode: AudioTrackMode = .mixed
 }
 
 enum SystemAudioSource: String, CaseIterable, Identifiable {
@@ -190,6 +207,7 @@ struct PersistedSettings {
     var quality: String
     var aspectRatio: String
     var systemAudio: String
+    var audioTrackMode: String
     var microphoneID: String?
     var microphoneLabel: String?
     var cameraID: String?
@@ -201,6 +219,7 @@ struct PersistedSettings {
         quality: QualityProfile.balanced.rawValue,
         aspectRatio: CaptureAspectRatio.free.rawValue,
         systemAudio: SystemAudioSource.off.rawValue,
+        audioTrackMode: AudioTrackMode.mixed.rawValue,
         microphoneID: nil,
         microphoneLabel: nil,
         cameraID: nil,

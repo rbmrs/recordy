@@ -17,6 +17,7 @@ enum AppPreferences {
             quality: data["quality"] as? String ?? PersistedSettings.defaults.quality,
             aspectRatio: data["aspectRatio"] as? String ?? PersistedSettings.defaults.aspectRatio,
             systemAudio: data["systemAudio"] as? String ?? PersistedSettings.defaults.systemAudio,
+            audioTrackMode: data["audioTrackMode"] as? String ?? PersistedSettings.defaults.audioTrackMode,
             microphoneID: data["microphoneID"] as? String,
             microphoneLabel: data["microphoneLabel"] as? String,
             cameraID: data["cameraID"] as? String,
@@ -31,6 +32,7 @@ enum AppPreferences {
             "quality": settings.quality.rawValue,
             "aspectRatio": settings.aspectRatio.rawValue,
             "systemAudio": settings.systemAudio.rawValue,
+            "audioTrackMode": settings.audioTrackMode.rawValue,
             "cameraShape": cameraShape.rawValue
         ]
 

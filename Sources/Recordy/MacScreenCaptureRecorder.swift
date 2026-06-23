@@ -13,6 +13,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
     private var systemAudioInput: AVAssetWriterInput?
     private var microphoneInput: AVAssetWriterInput?
     private var outputURL: URL?
+    private var audioTrackMode: AudioTrackMode = .mixed
     private var sessionStarted = false
     private var finishing = false
     private var failed = false
@@ -60,6 +61,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
             self.stream = stream
             self.assetWriter = writer
             self.outputURL = outputURL
+            self.audioTrackMode = settings.audioTrackMode
             self.sessionStarted = false
             self.finishing = false
             self.failed = false
@@ -204,10 +206,12 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
 
         let writer = assetWriter
         let finalURL = outputURL
+        let shouldMixAudioTracks = audioTrackMode == .mixed
 
         stream = nil
         assetWriter = nil
         outputURL = nil
+        audioTrackMode = .mixed
 
         videoInput?.markAsFinished()
         systemAudioInput?.markAsFinished()
@@ -237,6 +241,9 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
             if let error = writer.error {
                 self.emit(.failed(error.recordyDescription))
                 continuation.resume(throwing: error)
+            } else if !shouldMixAudioTracks {
+                self.emit(.idle)
+                continuation.resume(returning: finalURL)
             } else {
                 Task {
                     do {
@@ -416,6 +423,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         stream = nil
         assetWriter = nil
         outputURL = nil
+        audioTrackMode = .mixed
         videoInput = nil
         systemAudioInput = nil
         microphoneInput = nil
@@ -439,6 +447,7 @@ final class MacScreenCaptureRecorder: NSObject, @unchecked Sendable, RecorderEng
         systemAudioInput = nil
         microphoneInput = nil
         outputURL = nil
+        audioTrackMode = .mixed
         sessionStarted = false
         finishing = false
         emit(.failed(message))
