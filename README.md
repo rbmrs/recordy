@@ -8,17 +8,17 @@ A small, native macOS screen recorder scoped to a region. The app window *is* th
 
 - macOS 14 (Sonoma) or later
 - [Homebrew](https://brew.sh) — recommended install path
-- Swift toolchain (Xcode Command Line Tools, Xcode 16+) — only needed if building from source; the Homebrew formula pulls this in as a build dependency
 - Screen Recording permission — macOS prompts on first capture (System Settings → Privacy & Security → Screen Recording)
 
 ## Install
 
 ```bash
-brew tap rbmrs/recordy
-brew install rbmrs/recordy/recordy
+brew tap rbmrs/recordy https://github.com/rbmrs/recordy
+brew trust rbmrs/recordy
+brew install --cask recordy
 ```
 
-This compiles recordy from source on your machine. There's no Apple Developer ID behind this project, so nothing is signed or notarized — building locally is what avoids Gatekeeper's "unidentified developer" dialog entirely. `recordy` lands on your `PATH` automatically.
+This installs a real `Recordy.app` in `/Applications` — open it from Spotlight, Launchpad, or `open -a Recordy`, no terminal required afterward. There's no Apple Developer ID behind this project, so the app is ad-hoc signed rather than notarized; the cask strips the quarantine flag on install so Gatekeeper doesn't block it. `brew trust` is required on Homebrew 6.0+, which refuses to load third-party taps until explicitly trusted.
 
 ### Building from source
 

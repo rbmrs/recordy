@@ -14,16 +14,17 @@ Recordy records a chosen region of your screen with three knobs and nothing else
 
 ## Install
 
-The fastest way to get Recordy is Homebrew, via a small tap that builds it from source on your machine:
+The way to get Recordy is Homebrew — the repo doubles as its own tap, and installing gets you a real app in `/Applications`, not a terminal-launched binary:
 
 ```bash
-brew tap rbmrs/recordy
-brew install rbmrs/recordy/recordy
+brew tap rbmrs/recordy https://github.com/rbmrs/recordy
+brew trust rbmrs/recordy
+brew install --cask recordy
 ```
 
-Building from source locally, rather than shipping a prebuilt signed binary, is deliberate: there's no $99/year Apple Developer Program membership behind this project, so nothing is signed or notarized. Compiling on your machine sidesteps Gatekeeper's "unidentified developer" dialog entirely — that check only fires on binaries quarantined by a browser, Mail, or AirDrop-style download, not on something `git`, `curl`, or Homebrew's fetcher pulled down and built locally. `recordy` lands on your `PATH` automatically once the formula finishes.
+There's no $99/year Apple Developer Program membership behind this project, so releases are ad-hoc signed rather than notarized. The cask strips the quarantine flag on install, so Gatekeeper doesn't block the unsigned app — that's a deliberate step in the cask, not something you have to do by hand. `brew trust` is required on Homebrew 6.0+, which refuses to load third-party taps until you explicitly trust them. Once installed, open Recordy from Spotlight, Launchpad, or `open -a Recordy`.
 
-If you'd rather build it yourself without Homebrew, Recordy is a plain Swift Package Manager executable targeting macOS 14 and later:
+If you'd rather build it yourself, Recordy is a plain Swift Package Manager executable targeting macOS 14 and later:
 
 ```bash
 git clone https://github.com/rbmrs/recordy.git
