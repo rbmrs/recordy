@@ -17,12 +17,16 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.1</string>
+    <string>0.1.2</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Recordy shows your webcam as an overlay while recording your screen.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Recordy records microphone audio into your screen recordings.</string>
 </dict>
 </plist>
