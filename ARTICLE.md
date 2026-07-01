@@ -14,39 +14,23 @@ Recordy records a chosen region of your screen with three knobs and nothing else
 
 ## Install
 
-Recordy is a Swift Package Manager executable targeting macOS 14 and later. Clone the repo and build it with the Swift toolchain:
+The fastest way to get Recordy is Homebrew, via a small tap that builds it from source on your machine:
+
+```bash
+brew tap rbmrs/recordy
+brew install rbmrs/recordy/recordy
+```
+
+Building from source locally, rather than shipping a prebuilt signed binary, is deliberate: there's no $99/year Apple Developer Program membership behind this project, so nothing is signed or notarized. Compiling on your machine sidesteps Gatekeeper's "unidentified developer" dialog entirely — that check only fires on binaries quarantined by a browser, Mail, or AirDrop-style download, not on something `git`, `curl`, or Homebrew's fetcher pulled down and built locally. `recordy` lands on your `PATH` automatically once the formula finishes.
+
+If you'd rather build it yourself without Homebrew, Recordy is a plain Swift Package Manager executable targeting macOS 14 and later:
 
 ```bash
 git clone https://github.com/rbmrs/recordy.git
 cd recordy
 swift build -c release
-```
-
-Run it directly through SwiftPM:
-
-```bash
 swift run recordy
 ```
-
-### A `recordy` Command In Your Terminal
-
-The way I launch it day to day is a small wrapper script on my `PATH`, so typing `recordy` from any terminal opens the app. The script points at the project, builds it if the binary is not there yet, then runs it. Drop something like this in a directory on your `PATH` (for example `~/.local/bin/recordy`) and make it executable:
-
-```sh
-#!/bin/sh
-set -eu
-
-PROJECT_DIR="/path/to/recordy"
-BINARY="$PROJECT_DIR/.build/debug/recordy"
-
-if [ ! -x "$BINARY" ]; then
-  (cd "$PROJECT_DIR" && swift build)
-fi
-
-exec "$BINARY" "$@"
-```
-
-Point `PROJECT_DIR` at wherever you cloned the repo.
 
 ### Screen Recording Permission
 

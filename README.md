@@ -6,43 +6,28 @@ A small, native macOS screen recorder scoped to a region. The app window *is* th
 
 ## Requirements
 
-- macOS 14 or later
-- Swift toolchain (to build)
+- macOS 14 (Sonoma) or later
+- [Homebrew](https://brew.sh) — recommended install path
+- Swift toolchain (Xcode Command Line Tools, Xcode 16+) — only needed if building from source; the Homebrew formula pulls this in as a build dependency
 - Screen Recording permission — macOS prompts on first capture (System Settings → Privacy & Security → Screen Recording)
 
 ## Install
 
 ```bash
+brew tap rbmrs/recordy
+brew install rbmrs/recordy/recordy
+```
+
+This compiles recordy from source on your machine. There's no Apple Developer ID behind this project, so nothing is signed or notarized — building locally is what avoids Gatekeeper's "unidentified developer" dialog entirely. `recordy` lands on your `PATH` automatically.
+
+### Building from source
+
+```bash
 git clone https://github.com/rbmrs/recordy.git
 cd recordy
 swift build -c release
-```
-
-## Run
-
-```bash
 swift run recordy
 ```
-
-### A `recordy` command on your `PATH` (optional)
-
-Drop a wrapper script somewhere on your `PATH` (e.g. `~/.local/bin/recordy`) so typing `recordy` from any terminal builds on demand and opens the app:
-
-```sh
-#!/bin/sh
-set -eu
-
-PROJECT_DIR="/path/to/recordy"
-BINARY="$PROJECT_DIR/.build/debug/recordy"
-
-if [ ! -x "$BINARY" ]; then
-  (cd "$PROJECT_DIR" && swift build)
-fi
-
-exec "$BINARY" "$@"
-```
-
-Make it executable and point `PROJECT_DIR` at your clone.
 
 ## Usage
 
