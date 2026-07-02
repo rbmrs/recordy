@@ -10,7 +10,7 @@
 
 cask "recordy" do
   version "0.1.2"
-  sha256 "eb5e7da55d357ce2020c9878f32672856cd7689ae83608eefcc5ce416808e1d2"
+  sha256 "d89ad8a92b896a8c903f3889366654fce0181073d3ffab7f3d9d906ee84cd8cc"
 
   url "https://github.com/rbmrs/recordy/releases/download/v#{version}/Recordy-#{version}.zip"
   name "Recordy"
