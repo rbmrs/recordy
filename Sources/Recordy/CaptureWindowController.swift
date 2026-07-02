@@ -214,7 +214,7 @@ final class CapturePanel: NSPanel, NSWindowDelegate {
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        constrainedSize(for: frameSize, currentSize: sender.frame.size)
+        constrainedSize(for: frameSize)
     }
 
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
@@ -227,7 +227,7 @@ final class CapturePanel: NSPanel, NSWindowDelegate {
             return
         }
 
-        let adjustedSize = constrainedSize(for: frame.size, currentSize: frame.size)
+        let adjustedSize = constrainedSize(for: frame.size)
         guard adjustedSize != frame.size else {
             return
         }
@@ -239,7 +239,7 @@ final class CapturePanel: NSPanel, NSWindowDelegate {
         setFrame(adjustedFrame, display: true)
     }
 
-    private func constrainedSize(for proposedSize: NSSize, currentSize: NSSize) -> NSSize {
+    private func constrainedSize(for proposedSize: NSSize) -> NSSize {
         guard let ratio = captureAspectRatio.ratio else {
             return proposedSize
         }
@@ -250,16 +250,17 @@ final class CapturePanel: NSPanel, NSWindowDelegate {
         let minimumCaptureWidth = max(32, minSize.width - captureWidthInset)
         let minimumCaptureHeight = max(32, minSize.height - captureHeightInset)
 
-        var captureWidth = max(minimumCaptureWidth, proposedSize.width - captureWidthInset)
-        var captureHeight = max(minimumCaptureHeight, proposedSize.height - captureHeightInset)
-        let widthDelta = abs(proposedSize.width - currentSize.width)
-        let heightDelta = abs(proposedSize.height - currentSize.height)
+        let proposedCaptureWidth = proposedSize.width - captureWidthInset
+        let proposedCaptureHeight = proposedSize.height - captureHeightInset
 
-        if widthDelta >= heightDelta {
-            captureHeight = captureWidth / ratio
-        } else {
-            captureWidth = captureHeight * ratio
-        }
+        // Project the proposed box onto the aspect-ratio line (nearest point on
+        // width = ratio * height). This depends ONLY on the proposed size, so the
+        // same proposal always yields the same result. The old code chose the locked
+        // axis by comparing against the current frame — which was the size this
+        // method had just produced — so the choice flipped every event and the
+        // window oscillated between two sizes (the resize flicker).
+        var captureHeight = (ratio * proposedCaptureWidth + proposedCaptureHeight) / (ratio * ratio + 1)
+        var captureWidth = captureHeight * ratio
 
         if captureWidth < minimumCaptureWidth {
             captureWidth = minimumCaptureWidth
