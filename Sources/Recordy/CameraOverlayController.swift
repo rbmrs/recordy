@@ -11,7 +11,6 @@ final class CameraOverlayController: NSObject {
     private var generation = 0
     private var selectedCamera: CameraSource = .off
     private var shape: CameraShape = .circle
-    private var isFollowingAnchor = false
 
     init(anchorWindow: NSWindow?) {
         self.anchorWindow = anchorWindow
@@ -53,21 +52,6 @@ final class CameraOverlayController: NSObject {
         self.shape = shape
         previewView?.setShape(shape)
         panel?.shape = shape
-    }
-
-    func anchorWindowDidMove(delta: CGPoint) {
-        guard let panel else {
-            return
-        }
-
-        let currentFrame = panel.frame
-        let movedFrame = NSRect(
-            x: currentFrame.minX + delta.x,
-            y: currentFrame.minY + delta.y,
-            width: currentFrame.width,
-            height: currentFrame.height
-        )
-        movePanel(to: movedFrame)
     }
 
     private func start(deviceID: String, generation: Int) {
@@ -163,35 +147,26 @@ final class CameraOverlayController: NSObject {
         previewView.autoresizingMask = [.width, .height]
         previewView.setShape(shape)
         panel.contentView = previewView
-        panel.orderFrontRegardless()
 
         self.panel = panel
         self.previewView = previewView
+
+        // Attach the overlay as a child of the capture window so the window server
+        // moves it in lockstep with the anchor — smooth, zero-lag following with no
+        // delta tracking. The child keeps its own offset, which updates when the user
+        // drags the camera itself.
+        if let anchorWindow {
+            anchorWindow.addChildWindow(panel, ordered: .above)
+        } else {
+            panel.orderFrontRegardless()
+        }
         return previewView
     }
 
     private func cameraPanelFrameDidChange(_ frame: NSRect) {
-        guard !isFollowingAnchor else {
-            return
-        }
-
         AppPreferences.saveCameraFrame(frame)
         if let anchorWindow {
             AppPreferences.saveCameraRelativeFrame(relativeFrame(for: frame, anchorFrame: anchorWindow.frame))
-        }
-    }
-
-    private func movePanel(to frame: NSRect) {
-        guard let panel else {
-            return
-        }
-
-        isFollowingAnchor = true
-        panel.setFrame(frame, display: true)
-        isFollowingAnchor = false
-        AppPreferences.saveCameraFrame(panel.frame)
-        if let anchorWindow {
-            AppPreferences.saveCameraRelativeFrame(relativeFrame(for: panel.frame, anchorFrame: anchorWindow.frame))
         }
     }
 
