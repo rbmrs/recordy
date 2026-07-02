@@ -6,6 +6,18 @@ enum AppPreferences {
     private static let captureFrameKey = "recordy.captureFrame.v1"
     private static let cameraFrameKey = "recordy.cameraFrame.v1"
     private static let cameraRelativeFrameKey = "recordy.cameraRelativeFrame.v1"
+    private static let automaticUpdatesKey = "recordy.autoUpdate.v1"
+    private static let lastUpdateCheckKey = "recordy.lastUpdateCheck.v1"
+
+    static var automaticUpdates: Bool {
+        get { UserDefaults.standard.bool(forKey: automaticUpdatesKey) }
+        set { UserDefaults.standard.set(newValue, forKey: automaticUpdatesKey) }
+    }
+
+    static var lastUpdateCheck: Date? {
+        get { UserDefaults.standard.object(forKey: lastUpdateCheckKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: lastUpdateCheckKey) }
+    }
 
     static func loadSettings() -> PersistedSettings {
         guard let data = UserDefaults.standard.dictionary(forKey: settingsKey) else {
