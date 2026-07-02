@@ -237,7 +237,7 @@ struct RecorderView: View {
             )
             .offset(x: CaptureLayout.cameraDropdownX, y: CaptureLayout.dropdownPopupY)
         case .settings:
-            RecorderSettingsPopup(audioTrackMode: $viewModel.settings.audioTrackMode)
+            RecorderSettingsPopup(audioTrackMode: $viewModel.settings.audioTrackMode, updater: HomebrewUpdater.shared)
                 .offset(x: CaptureLayout.settingsPopupX, y: CaptureLayout.dropdownPopupY)
         case nil:
             EmptyView()
@@ -366,6 +366,14 @@ struct DropdownPopup<Option: Hashable>: View {
 
 struct RecorderSettingsPopup: View {
     @Binding var audioTrackMode: AudioTrackMode
+    @ObservedObject var updater: HomebrewUpdater
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -402,9 +410,13 @@ struct RecorderSettingsPopup: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.white.opacity(0.12))
             )
+
+            Divider()
+
+            updatesSection
         }
         .padding(10)
-        .frame(width: 244)
+        .frame(width: 260)
         .background(
             RoundedRectangle(cornerRadius: 9)
                 .fill(Color.black.opacity(0.92))
@@ -416,5 +428,63 @@ struct RecorderSettingsPopup: View {
         .foregroundStyle(.white)
         .shadow(radius: 8, y: 4)
         .zIndex(50)
+    }
+
+    private var updatesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Updates")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.78))
+
+            HStack {
+                Text("Version")
+                    .font(.system(size: 12))
+                Spacer()
+                Text(updater.currentVersion)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            Toggle(isOn: $updater.automaticUpdates) {
+                Text("Automatic updates")
+                    .font(.system(size: 12))
+            }
+            .toggleStyle(.switch)
+            .tint(.accentColor)
+            .controlSize(.mini)
+
+            Text("When on, Recordy installs the latest version with Homebrew when you quit.")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.5))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let message = updater.statusMessage {
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(1)
+            } else if let checked = updater.lastChecked {
+                Text("Last checked \(Self.dateFormatter.string(from: checked))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+            }
+
+            Button {
+                updater.checkForUpdates()
+            } label: {
+                Text(updater.status == .checking ? "Checking…" : "Check for Updates…")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.white.opacity(0.14))
+                    )
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .disabled(updater.status == .checking)
+        }
     }
 }
