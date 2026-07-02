@@ -49,6 +49,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        HomebrewUpdater.shared.runAutomaticUpdateOnQuit()
+    }
+
     private func installMenu() {
         let mainMenu = NSMenu()
         let appMenuItem = NSMenuItem()
