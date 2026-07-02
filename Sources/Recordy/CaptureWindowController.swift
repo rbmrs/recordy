@@ -5,8 +5,6 @@ import SwiftUI
 final class CaptureWindowController: NSWindowController {
     private let viewModel: RecorderViewModel
     private var passThroughTimer: Timer?
-    private var lastWindowOrigin: CGPoint?
-    var originDidChange: ((CGPoint) -> Void)?
 
     init(viewModel: RecorderViewModel) {
         self.viewModel = viewModel
@@ -30,14 +28,6 @@ final class CaptureWindowController: NSWindowController {
         panel.delegate = panel
 
         super.init(window: panel)
-
-        lastWindowOrigin = panel.frame.origin
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowDidMove(_:)),
-            name: NSWindow.didMoveNotification,
-            object: panel
-        )
 
         let hostingView = CaptureHostingView(rootView: RecorderView(viewModel: viewModel), viewModel: viewModel)
         hostingView.frame = panel.contentView?.bounds ?? .zero
@@ -64,30 +54,7 @@ final class CaptureWindowController: NSWindowController {
         if AppPreferences.loadCaptureFrame() == nil {
             window?.center()
         }
-        lastWindowOrigin = window?.frame.origin
         window?.makeKeyAndOrderFront(sender)
-    }
-
-    @objc private func windowDidMove(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else {
-            return
-        }
-
-        let newOrigin = window.frame.origin
-        guard let lastWindowOrigin else {
-            self.lastWindowOrigin = newOrigin
-            return
-        }
-
-        let delta = CGPoint(
-            x: newOrigin.x - lastWindowOrigin.x,
-            y: newOrigin.y - lastWindowOrigin.y
-        )
-        self.lastWindowOrigin = newOrigin
-
-        if delta.x != 0 || delta.y != 0 {
-            originDidChange?(delta)
-        }
     }
 
     private func startPassThroughTracking(for panel: NSPanel) {
@@ -215,6 +182,12 @@ final class CapturePanel: NSPanel, NSWindowDelegate {
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
         constrainedSize(for: frameSize)
+    }
+
+    // Dragging moves the window via setFrameOrigin, which never calls
+    // setFrame(_:display:), so position was never persisted — only resizes were.
+    func windowDidMove(_ notification: Notification) {
+        AppPreferences.saveCaptureFrame(frame)
     }
 
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
