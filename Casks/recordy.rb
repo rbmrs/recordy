@@ -9,8 +9,8 @@
 # not `homebrew-recordy`. See https://docs.brew.sh/Taps.
 
 cask "recordy" do
-  version "0.1.5"
-  sha256 "f74dbff19352a5718a6aba1bd7e77c41e48e9816a071f208fc92c624332067bb"
+  version "0.1.6"
+  sha256 "21481500e53e88f8136ce6364231d8abf010bfe1e8957d71ccc698c9ae9f2f00"
 
   url "https://github.com/rbmrs/recordy/releases/download/v#{version}/Recordy-#{version}.zip"
   name "Recordy"
