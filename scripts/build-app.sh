@@ -44,6 +44,12 @@ lipo -create "${SLICES[@]}" -output "$MACOS_DIR/recordy"
 cp "$ROOT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 
+# Stamp the bundle version from VERSION (the release tag in CI); fall back to the
+# plist's own value for local builds. Keeps the tag the single source of truth so
+# the app's reported version can't drift from what was released.
+VERSION="${VERSION:-$(plutil -extract CFBundleShortVersionString raw -o - "$CONTENTS_DIR/Info.plist")}"
+plutil -replace CFBundleShortVersionString -string "$VERSION" "$CONTENTS_DIR/Info.plist"
+
 chmod 755 "$MACOS_DIR/recordy"
 
 echo "Signing Recordy.app with a stable local requirement…"

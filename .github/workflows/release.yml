@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Package release artifacts
-        run: ./scripts/package-release.sh
+        run: VERSION="${GITHUB_REF_NAME#v}" ./scripts/package-release.sh
 
       - name: Publish GitHub release
         env:

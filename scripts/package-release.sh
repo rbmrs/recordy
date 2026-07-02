@@ -12,7 +12,7 @@ rm -rf "$RELEASE_DIR" "$BUILD_DIR"
 mkdir -p "$RELEASE_DIR"
 
 # Build one universal (arm64 + x86_64) app bundle.
-OUTPUT_DIR="$BUILD_DIR" "$ROOT_DIR/scripts/build-app.sh"
+VERSION="$VERSION" OUTPUT_DIR="$BUILD_DIR" "$ROOT_DIR/scripts/build-app.sh"
 
 # Normalize timestamps so the archive is reproducible across runs.
 find "$BUILD_DIR/Recordy.app" -exec touch -t 202001010000 {} +
