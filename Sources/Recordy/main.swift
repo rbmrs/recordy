@@ -36,11 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 controller?.setAspectRatio(aspectRatio)
             }
         }
-        controller.originDidChange = { [weak cameraOverlay] delta in
-            Task { @MainActor in
-                cameraOverlay?.anchorWindowDidMove(delta: delta)
-            }
-        }
         viewModel.syncCameraOverlay()
         viewModel.syncCaptureWindowSettings()
         captureWindowController = controller
