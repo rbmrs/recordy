@@ -202,6 +202,33 @@ enum CameraShape: String {
     case square
 }
 
+enum CameraSize: String, CaseIterable {
+    case small
+    case medium
+    case large
+
+    var side: CGFloat {
+        switch self {
+        case .small: return 156
+        case .medium: return 198
+        case .large: return 260
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .small: return "S"
+        case .medium: return "M"
+        case .large: return "L"
+        }
+    }
+
+    var next: CameraSize {
+        let all = CameraSize.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
+    }
+}
+
 struct PersistedSettings {
     var fps: Int
     var quality: String
@@ -213,6 +240,7 @@ struct PersistedSettings {
     var cameraID: String?
     var cameraLabel: String?
     var cameraShape: String
+    var cameraSize: String
 
     static let defaults = PersistedSettings(
         fps: RecordingFPS.fps30.rawValue,
@@ -224,7 +252,8 @@ struct PersistedSettings {
         microphoneLabel: nil,
         cameraID: nil,
         cameraLabel: nil,
-        cameraShape: CameraShape.circle.rawValue
+        cameraShape: CameraShape.circle.rawValue,
+        cameraSize: CameraSize.medium.rawValue
     )
 }
 
