@@ -123,6 +123,23 @@ struct RecorderView: View {
                 .help("Toggle webcam shape")
 
                 Button {
+                    viewModel.cycleCameraSize()
+                } label: {
+                    Text(viewModel.cameraSize.label)
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: CaptureLayout.toolbarControlHeight, height: CaptureLayout.toolbarControlHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(Color.white.opacity(viewModel.settings.camera.isEnabled ? 0.16 : 0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.settings.camera.isEnabled ? .white : .white.opacity(0.45))
+                .disabled(!viewModel.settings.camera.isEnabled || viewModel.state.isRecording)
+                .frame(width: 34, height: CaptureLayout.toolbarControlSlotHeight)
+                .help("Webcam size (small / medium / large)")
+
+                Button {
                     toggleDropdown(.settings)
                 } label: {
                     Image(systemName: "gearshape")
