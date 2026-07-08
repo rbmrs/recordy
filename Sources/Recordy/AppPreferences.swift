@@ -34,18 +34,20 @@ enum AppPreferences {
             microphoneLabel: data["microphoneLabel"] as? String,
             cameraID: data["cameraID"] as? String,
             cameraLabel: data["cameraLabel"] as? String,
-            cameraShape: data["cameraShape"] as? String ?? PersistedSettings.defaults.cameraShape
+            cameraShape: data["cameraShape"] as? String ?? PersistedSettings.defaults.cameraShape,
+            cameraSize: data["cameraSize"] as? String ?? PersistedSettings.defaults.cameraSize
         )
     }
 
-    static func save(settings: RecordingSettings, cameraShape: CameraShape) {
+    static func save(settings: RecordingSettings, cameraShape: CameraShape, cameraSize: CameraSize) {
         var data: [String: Any] = [
             "fps": settings.fps.rawValue,
             "quality": settings.quality.rawValue,
             "aspectRatio": settings.aspectRatio.rawValue,
             "systemAudio": settings.systemAudio.rawValue,
             "audioTrackMode": settings.audioTrackMode.rawValue,
-            "cameraShape": cameraShape.rawValue
+            "cameraShape": cameraShape.rawValue,
+            "cameraSize": cameraSize.rawValue
         ]
 
         if let microphoneID = settings.microphone.deviceID {
