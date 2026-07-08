@@ -25,10 +25,17 @@ final class RecorderViewModel: ObservableObject {
             persistSettings()
         }
     }
+    @Published var cameraSize: CameraSize = .medium {
+        didSet {
+            cameraSizeChanged?(cameraSize)
+            persistSettings()
+        }
+    }
 
     var regionProvider: (() -> CaptureRegion?)?
     var cameraSelectionChanged: ((CameraSource) -> Void)?
     var cameraShapeChanged: ((CameraShape) -> Void)?
+    var cameraSizeChanged: ((CameraSize) -> Void)?
     var aspectRatioChanged: ((CaptureAspectRatio) -> Void)?
 
     private let engine: RecorderEngine
@@ -51,6 +58,7 @@ final class RecorderViewModel: ObservableObject {
     func syncCameraOverlay() {
         cameraSelectionChanged?(settings.camera)
         cameraShapeChanged?(cameraShape)
+        cameraSizeChanged?(cameraSize)
     }
 
     func syncCaptureWindowSettings() {
@@ -81,10 +89,11 @@ final class RecorderViewModel: ObservableObject {
         }
 
         cameraShape = CameraShape(rawValue: persisted.cameraShape) ?? .circle
+        cameraSize = CameraSize(rawValue: persisted.cameraSize) ?? .medium
     }
 
     private func persistSettings() {
-        AppPreferences.save(settings: settings, cameraShape: cameraShape)
+        AppPreferences.save(settings: settings, cameraShape: cameraShape, cameraSize: cameraSize)
     }
 
     func refreshMicrophones() {
@@ -139,6 +148,10 @@ final class RecorderViewModel: ObservableObject {
 
     func toggleCameraShape() {
         cameraShape = cameraShape == .circle ? .square : .circle
+    }
+
+    func cycleCameraSize() {
+        cameraSize = cameraSize.next
     }
 
     func toggleRecording() {
