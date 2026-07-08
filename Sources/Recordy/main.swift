@@ -31,6 +31,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 cameraOverlay?.setShape(shape)
             }
         }
+        viewModel.cameraSizeChanged = { [weak cameraOverlay] size in
+            Task { @MainActor in
+                cameraOverlay?.setSize(size)
+            }
+        }
         viewModel.aspectRatioChanged = { [weak controller] aspectRatio in
             Task { @MainActor in
                 controller?.setAspectRatio(aspectRatio)
