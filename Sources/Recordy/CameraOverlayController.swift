@@ -11,6 +11,7 @@ final class CameraOverlayController: NSObject {
     private var generation = 0
     private var selectedCamera: CameraSource = .off
     private var shape: CameraShape = .circle
+    private var size: CameraSize = .medium
 
     init(anchorWindow: NSWindow?) {
         self.anchorWindow = anchorWindow
@@ -52,6 +53,19 @@ final class CameraOverlayController: NSObject {
         self.shape = shape
         previewView?.setShape(shape)
         panel?.shape = shape
+    }
+
+    func setSize(_ size: CameraSize) {
+        self.size = size
+        guard let panel else {
+            return
+        }
+        let side = max(panel.minSize.width, size.side)
+        panel.setFrame(centeredFrame(panel.frame, side: side), display: true)
+    }
+
+    private func centeredFrame(_ frame: NSRect, side: CGFloat) -> NSRect {
+        NSRect(x: frame.midX - side / 2, y: frame.midY - side / 2, width: side, height: side)
     }
 
     private func start(deviceID: String, generation: Int) {
@@ -114,7 +128,7 @@ final class CameraOverlayController: NSObject {
             return previewView
         }
 
-        let size: CGFloat = 172
+        let side = size.side
         let savedRelativeFrame = AppPreferences.loadCameraRelativeFrame()
         let savedFrame = savedRelativeFrame.flatMap { relativeFrame -> NSRect? in
             guard let anchorWindow else {
@@ -122,9 +136,9 @@ final class CameraOverlayController: NSObject {
             }
             return absoluteFrame(from: relativeFrame, anchorFrame: anchorWindow.frame)
         } ?? AppPreferences.loadCameraFrame()
-        let origin = defaultOrigin(size: size)
+        let base = savedFrame ?? NSRect(origin: defaultOrigin(size: side), size: NSSize(width: side, height: side))
         let panel = CameraPanel(
-            contentRect: savedFrame ?? NSRect(x: origin.x, y: origin.y, width: size, height: size),
+            contentRect: centeredFrame(base, side: side),
             styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
@@ -143,7 +157,7 @@ final class CameraOverlayController: NSObject {
             self?.cameraPanelFrameDidChange(frame)
         }
 
-        let previewView = CameraPreviewView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        let previewView = CameraPreviewView(frame: NSRect(x: 0, y: 0, width: side, height: side))
         previewView.autoresizingMask = [.width, .height]
         previewView.setShape(shape)
         panel.contentView = previewView
@@ -236,9 +250,6 @@ final class CameraPanel: NSPanel, NSWindowDelegate {
 final class CameraPreviewView: NSView {
     let previewLayer = AVCaptureVideoPreviewLayer()
     private var shape: CameraShape = .circle
-    private let resizeHandleSize: CGFloat = 24
-    private var dragStartFrame: NSRect?
-    private var dragStartLocation: NSPoint?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -246,6 +257,7 @@ final class CameraPreviewView: NSView {
         layer = CALayer()
         layer?.addSublayer(previewLayer)
         previewLayer.setAffineTransform(CGAffineTransform(scaleX: -1, y: 1))
+
         addTrackingArea(
             NSTrackingArea(
                 rect: bounds,
@@ -259,87 +271,36 @@ final class CameraPreviewView: NSView {
         nil
     }
 
+    // Deliver the first click to a non-key window instead of swallowing it to
+    // activate — lets a single click-drag move the overlay without a prior select click.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     override func layout() {
         super.layout()
         previewLayer.frame = bounds
         previewLayer.setAffineTransform(CGAffineTransform(scaleX: -1, y: 1))
         updateMask()
-        needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {
-        if isResizePoint(convert(event.locationInWindow, from: nil)) {
-            dragStartFrame = window?.frame
-            dragStartLocation = NSEvent.mouseLocation
-            return
-        }
         window?.performDrag(with: event)
     }
 
-    override func mouseDragged(with event: NSEvent) {
-        guard let window,
-              let dragStartFrame,
-              let dragStartLocation else {
-            return
-        }
-
-        let current = NSEvent.mouseLocation
-        let delta = max(current.x - dragStartLocation.x, dragStartLocation.y - current.y)
-        let side = max(window.minSize.width, dragStartFrame.width + delta)
-        let newFrame = NSRect(
-            x: dragStartFrame.minX,
-            y: dragStartFrame.maxY - side,
-            width: side,
-            height: side
-        )
-        window.setFrame(newFrame, display: true)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        dragStartFrame = nil
-        dragStartLocation = nil
-    }
-
     override func mouseMoved(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        if isResizePoint(point) {
-            NSCursor.resizeLeftRight.set()
-        } else {
-            NSCursor.openHand.set()
-        }
+        NSCursor.openHand.set()
     }
 
     func setShape(_ shape: CameraShape) {
         self.shape = shape
         updateMask()
-        needsDisplay = true
     }
 
     private func updateMask() {
-        wantsLayer = true
-        layer?.masksToBounds = true
-        layer?.cornerRadius = shape == .circle ? min(bounds.width, bounds.height) / 2 : 10
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.55).cgColor
-        layer?.borderWidth = 2
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        NSColor.white.withAlphaComponent(0.82).setFill()
-        NSColor.black.withAlphaComponent(0.28).setStroke()
-
-        let handleRect = NSRect(
-            x: bounds.maxX - resizeHandleSize + 4,
-            y: 4,
-            width: resizeHandleSize - 8,
-            height: resizeHandleSize - 8
-        )
-        let path = NSBezierPath(roundedRect: handleRect, xRadius: 5, yRadius: 5)
-        path.fill()
-        path.stroke()
-    }
-
-    private func isResizePoint(_ point: NSPoint) -> Bool {
-        point.x >= bounds.maxX - resizeHandleSize && point.y <= resizeHandleSize
+        previewLayer.masksToBounds = true
+        previewLayer.cornerRadius = shape == .circle ? min(bounds.width, bounds.height) / 2 : 10
+        previewLayer.borderColor = NSColor.white.withAlphaComponent(0.55).cgColor
+        previewLayer.borderWidth = 2
     }
 }
